@@ -11,3 +11,6 @@ wx_prom
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Note files
+*.xoj
