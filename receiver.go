@@ -5,16 +5,11 @@ import (
 	"encoding/json"
 	"log"
 	"net"
-	"os"
-	"os/signal"
 	"time"
 )
 
-func syslog_receiver(out chan Message) {
-	defer close(out)
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt)
+func syslog_receiver(msgs chan Message, exit chan bool) {
+	defer close(msgs)
 
 	server, err := net.ListenUDP("udp", &net.UDPAddr{Port: 4242})
 	if err != nil {
@@ -30,8 +25,7 @@ func syslog_receiver(out chan Message) {
 receive_loop:
 	for {
 		select {
-		case _ = <-sigs:
-			log.Print("Received interrupt.  Exiting...")
+		case <-exit:
 			break receive_loop
 		default:
 		}
@@ -67,6 +61,7 @@ receive_loop:
 
 		msg.Temperature = (9.0 * msg.Temperature / 5.0) + 32.0
 
-		out <- msg
+		msgs <- msg
 	}
+	log.Print("Receiver exiting...")
 }
