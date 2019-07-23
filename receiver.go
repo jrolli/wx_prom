@@ -59,8 +59,6 @@ receive_loop:
 			continue
 		}
 
-		msg.Temperature = (9.0 * msg.Temperature / 5.0) + 32.0
-
 		msgs <- msg
 	}
 	log.Print("Receiver exiting...")

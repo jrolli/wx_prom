@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,15 @@ import (
 const (
 	data_current = iota
 )
+
+type DataRequest struct {
+	RequestType int
+	ResponseChan chan map[int]Message
+}
+
+func toFahrenheit(temp float64)(float64) {
+	return (9.0 * temp / 5.0) + 32.0
+}
 
 func http_server(msgs chan Message, exit chan bool) {
 	rooms := map[int]string{
@@ -25,10 +35,9 @@ func http_server(msgs chan Message, exit chan bool) {
 
 	data := make(map[int]Message)
 
-	requests := make(chan int)
-	responses := make(chan map[int]Message)
+	requests := make(chan DataRequest)
 
-	go http_handler(requests, responses)
+	go http_handler(requests)
 
 data_loop:
 	for {
@@ -43,9 +52,9 @@ data_loop:
 			if !ok {
 				log.Fatal("connection to frontend lost")
 			}
-			switch data_req {
+			switch data_req.RequestType {
 			case data_current:
-				responses <- data
+				data_req.ResponseChan <- data
 			default:
 				log.Fatal("unknown data request received")
 			}
@@ -56,7 +65,7 @@ data_loop:
 	for ch, msg := range data {
 		log.Printf("%-14s: %6.1f F | %3d%% (Batt: %s)",
 			rooms[ch],
-			msg.Temperature,
+			toFahrenheit(msg.Temperature),
 			msg.Humidity,
 			msg.Battery)
 
@@ -64,9 +73,10 @@ data_loop:
 	log.Print("Server exiting...")
 }
 
-func get_handler(requests chan int, responses chan map[int]Message) http.HandlerFunc {
+func get_text_handler(requests chan DataRequest) http.HandlerFunc {
+	responses := make(chan map[int]Message)
 	return (func(w http.ResponseWriter, r *http.Request) {
-		requests <- data_current
+		requests <- DataRequest{data_current, responses}
 		data := <-responses
 
 		resp := ""
@@ -82,7 +92,7 @@ func get_handler(requests chan int, responses chan map[int]Message) http.Handler
 			resp = fmt.Sprintf("%s%15s: %6.1f F | %3d%% (%s)\n",
 				resp,
 				data[ch].Room,
-				data[ch].Temperature,
+				toFahrenheit(data[ch].Temperature),
 				data[ch].Humidity,
 				data[ch].Time[:16])
 		}
@@ -91,12 +101,32 @@ func get_handler(requests chan int, responses chan map[int]Message) http.Handler
 	})
 }
 
-func http_handler(requests chan int, responses chan map[int]Message) {
-	http.HandleFunc("/temp.txt", get_handler(requests, responses))
+func get_json_handler(requests chan DataRequest) http.HandlerFunc {
+	responses := make(chan map[int]Message)
+	return (func(w http.ResponseWriter, r *http.Request) {
+		requests <- DataRequest{data_current, responses}
+		data := <-responses
+
+		outbound := []Message{}
+		for _, msg := range data {
+			outbound = append(outbound, msg)
+		}
+
+		resp, err := json.Marshal(outbound)
+		if (err != nil) {
+			log.Fatal("could not create json")
+		}
+
+		w.Write([]byte(resp))
+	})
+}
+
+func http_handler(requests chan DataRequest) {
+	http.HandleFunc("/temp.txt", get_text_handler(requests))
+	http.HandleFunc("/temp.json", get_json_handler(requests))
 
 	listen_addr := ":8080"
 
 	log.Printf("Listening at %s", listen_addr)
 	log.Print(http.ListenAndServe(listen_addr, nil))
-
 }
