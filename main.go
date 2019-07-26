@@ -16,6 +16,7 @@ type Message struct {
 	Humidity    int     `json:"humidity"`
 	Battery     string  `json:"battery"`
 	Room        string  `json:"room"`
+	PosixTime   int64   `json:"posix_time"`
 }
 
 func main() {

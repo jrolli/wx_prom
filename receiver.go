@@ -59,6 +59,12 @@ receive_loop:
 			continue
 		}
 
+		timestamp, err := time.Parse("2006-01-02 15:04:05", msg.Time)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		msg.PosixTime = timestamp.Unix()
 		msgs <- msg
 	}
 	log.Print("Receiver exiting...")

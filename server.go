@@ -13,11 +13,11 @@ const (
 )
 
 type DataRequest struct {
-	RequestType int
+	RequestType  int
 	ResponseChan chan map[int]Message
 }
 
-func toFahrenheit(temp float64)(float64) {
+func toFahrenheit(temp float64) float64 {
 	return (9.0 * temp / 5.0) + 32.0
 }
 
@@ -113,8 +113,8 @@ func get_json_handler(requests chan DataRequest) http.HandlerFunc {
 		}
 
 		resp, err := json.Marshal(outbound)
-		if (err != nil) {
-			log.Fatal("could not create json")
+		if err != nil {
+			log.Print("could not create json")
 		}
 
 		w.Write([]byte(resp))
@@ -122,8 +122,9 @@ func get_json_handler(requests chan DataRequest) http.HandlerFunc {
 }
 
 func http_handler(requests chan DataRequest) {
-	http.HandleFunc("/temp.txt", get_text_handler(requests))
-	http.HandleFunc("/temp.json", get_json_handler(requests))
+	http.Handle("/", http.FileServer(http.Dir("site")))
+	http.HandleFunc("/api/temp.txt", get_text_handler(requests))
+	http.HandleFunc("/api/temp.json", get_json_handler(requests))
 
 	listen_addr := ":8080"
 
