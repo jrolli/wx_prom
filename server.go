@@ -75,16 +75,16 @@ data_loop:
 	log.Print("Server exiting...")
 }
 
-func get_text_handler(requests chan DataRequest) http.HandlerFunc {
+func get_text_handler(requests chan DataRequest) http.Handler {
 	responses := make(chan map[int]Message)
-	return (func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- DataRequest{data_current, responses}
 		data := <-responses
 
 		resp := ""
 
 		chans := make([]int, 0)
-		for ch, _ := range data {
+		for ch := range data {
 			chans = append(chans, ch)
 		}
 
@@ -103,9 +103,9 @@ func get_text_handler(requests chan DataRequest) http.HandlerFunc {
 	})
 }
 
-func get_json_handler(requests chan DataRequest) http.HandlerFunc {
+func get_json_handler(requests chan DataRequest) http.Handler {
 	responses := make(chan map[int]Message)
-	return (func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- DataRequest{data_current, responses}
 		data := <-responses
 
@@ -124,9 +124,11 @@ func get_json_handler(requests chan DataRequest) http.HandlerFunc {
 }
 
 func http_handler(requests chan DataRequest) {
-	http.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("site"))))
-	http.HandleFunc("/api/temp.txt", get_text_handler(requests))
-	http.HandleFunc("/api/temp.json", get_json_handler(requests))
+	gz := gziphandler.GzipHandler
+
+	http.Handle("/", gz(http.FileServer(http.Dir("site"))))
+	http.Handle("/api/temp.txt", gz(get_text_handler(requests)))
+	http.Handle("/api/temp.json", gz(get_json_handler(requests)))
 
 	listen_addr := ":8080"
 
