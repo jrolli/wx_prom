@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"sort"
+
+	"github.com/NYTimes/gziphandler"
 )
 
 const (
@@ -122,7 +124,7 @@ func get_json_handler(requests chan DataRequest) http.HandlerFunc {
 }
 
 func http_handler(requests chan DataRequest) {
-	http.Handle("/", http.FileServer(http.Dir("site")))
+	http.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("site"))))
 	http.HandleFunc("/api/temp.txt", get_text_handler(requests))
 	http.HandleFunc("/api/temp.json", get_json_handler(requests))
 
